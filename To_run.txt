@@ -130,3 +130,14 @@ cd A:\Project\PDFAssistant
         If blank then not loaded it.
         Reload it manually: sudo docker exec -it nagios /opt/nagios/bin/nagios -v /opt/nagios/etc/nagios.cfg
         Then start nagios daemon again: sudo docker exec -it nagios /opt/nagios/bin/nagios -d /opt/nagios/etc/nagios.cfg
+
+14) To upload it on github:
+    A) Create a new repository on github web
+    B) Open gitbash inside your local working folder
+    C) Initialise git: git init
+    D) Add files: git add .
+    E) Commit changes: git commit -m "Anything you want to write"
+    F) Connect with your repository:  git remote add origin https://github.com/shivangs107/pdf-assistant
+    G) Push to that repository: git push -u origin main
+
+15) To pull back changes from Web to local: git pull origin main
