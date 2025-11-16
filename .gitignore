@@ -1,0 +1,31 @@
+#Python
+__pycache__/
+#Virtual Environment
+venv/
+.venv/
+#Environment Variables
+.env
+*.pem
+*.key
+#Access Key
+Zether_accessKeys.csv
+#Terraform files
+terraform-ec2/.terraform/
+terraform-ec2/.terraform.lock.hcl
+terraform-ec2/terraform.tfstate
+terraform-ec2/terraform.tfstate.backup
+terraform-ec2/terraform.tfstate.*
+*.tfvars.json
+*.tfvars
+#Docker
+*.tar
+
+#Other files
+#MacOS
+.DS_Store
+#Windows Explorer
+Thumbs.db
+#VS Code Workspace setting
+.vscode/
+#JetBrains IDEs
+.idea/

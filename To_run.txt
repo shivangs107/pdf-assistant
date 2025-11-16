@@ -1,0 +1,132 @@
+1) For Running Locally
+cd A:\Project\PDFAssistant
+    python -m venv venv
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    venv\Scripts\activate
+    pip install -r requirements.txt
+    streamlit run app.py
+    To exit:
+        deactivate
+
+2) For containerizing using Docker
+After creating Dockerfile and .dockerignore
+cd A:\Project\PDFAssistant
+    Building Docker Image: docker build -t pdf-assistant .
+        Or docker build --no-cache -t pdf-assistant . (If requirements.txt or Dockerfile changed)
+        **On building it will show timeout error for downloading torch. Update the timeout limit.
+    Check Images: docker images
+    App Running: docker run --env-file .env -p 8501:8501 pdf-assistant
+        Visible on: http://localhost:8502/
+    Check Containers: docker ps
+    Stoping the Container: docker stop <container_id>
+
+    **To know the size details of image do:
+            docker run -it <your_image_name> bash
+            du -h -d1 / | sort -hr | head -n 20
+            Then go down each layer which is highest. Like:
+                du -h -d1 /usr | sort -hr | head -n 20
+                du -h -d1 /usr/local | sort -hr | head -n 20
+                du -h -d1 /usr/local/lib | sort -hr | head -n 20
+                du -h -d1 /usr/local/lib/python3.12/site-packages | sort -hr | head -n 30
+
+    **Remember to use CPU only version of torch otherwise it will take 9GB
+            RUN pip install torch==2.4.0+cpu \
+            --index-url https://download.pytorch.org/whl/cpu
+
+3) To upload on Docker Hub (We can also do that in AWS ECR)
+    docker login
+    docker images
+    docker tag pdf-assistant shivangs107/pdf-assistant:latest
+    docker push shivangs107/pdf-assistant:latest
+
+4) Deploying on AWS.
+    We only need a copute engine to run our streamlit app and OpenAPI_API key manager.
+    As we are not going to store the chat history and pdf embeddings, we don't need persistent storage.
+    We need that compute to connect to port 8501 or 8502.
+    We will be doing our setup (Infrastructure) via terraform.
+
+5) Working with Terraform (Install it on widows first if working locally)
+    Before Terraform if we need to start an EC2, we have to manually:
+        Choose AMI, Instance Type, Configuration, Storage settings, tags and Security Groups.
+    After Terraform we can do it in a single code.
+    Install AWS cli too.
+    Need to create IAM user with necessary permissions.
+
+    Go to Security credentials (options when you click at your name)
+    Scroll down and click: create access key -> CLI -> Download the csv file
+    aws configure (cmd)
+    region: ap-south-1
+    output format: json
+    to verify: aws sts get-caller-identity
+
+    mkdir terraform-ec2
+    cd terraform-ec2
+    inside teraform-ec2 folder:
+        ni main.tf
+        ni variables.tf
+        ni outputs.tf
+
+    **If no default vpc: run this once in cmd-> aws ec2 create-default-vpc
+    **To check vpcs: aws ec2 describe-vpcs --region ap-south-1
+    **Give OpenAPI_API Key like this in cmd: 
+        aws ssm put-parameter --name "OPENAI_API_KEY" --value "sk-your-real-key" --type SecureString
+
+    cd A:\Project\PDFAssistant\terraform-ec2
+    terraform init (only if provider.tf or .terraform deleted)
+    terraform validate (To check)
+    terraform plan
+    terraform apply -auto-approve
+        Will start working after 3min 7sec (without nagios)
+    terraform destroy -auto-approve
+
+6) To make pdfkey.pem readable only (For debugging):
+    In powershell-> 
+    PS A:\Project\PDFAssistant\terraform-ec2> 
+        icacls pdfkey.pem /inheritance:r         #Removes all permissions
+        icacls pdfkey.pem /grant:r "$($env:USERNAME):(R)"                  #Set to read only
+    To revert back permission for terraform destroy:
+        icacls pdfkey.pem /grant:r "$($env:USERNAME):(F)"                 #Grants all permission
+
+7) Debugging terraform issue
+    To go inside EC2 instance: ssh -i ./pdfkey.pem ubuntu@<public_ip>
+    To go inside EC2  nagios: ssh -i ./pdfkey.pem ubuntu@<nagio_ip>
+    Do the remaining inside ec2 instance
+        Docker check: sudo systemctl status docker
+        Docker container: docker ps
+        Logs check: cat /var/log/user-data.log
+        Check whether IAM policy attached (Outside EC2 instance):
+            aws ec2 describe-instances --instance-ids <instance_id> --query "Reservations[*].Instances[*].IamInstanceProfile.Arn" --region ap-south-1
+        Caller Identity for checking whether credentials filled matched: aws sts get-caller-identity
+        Check API: aws ssm get-parameter --name "OPENAI_API_KEY" --with-decryption --region ap-south-1
+
+    To check image size and space: df -h
+
+    To exit from instance: exit
+
+8) To check IAM policies: aws iam list-attached-user-policies --user-name <your-username>
+
+9) SSH is failing (Permission denied publickey)
+    The EC2 instance did not recognize your .pem file’s public key.
+    A) Check which key your instance was launched with
+        aws ec2 describe-instances --instance-ids <instance-id> --query "Reservations[*].Instances[*].KeyName" --region ap-south-1
+    B) Check the EC2 AMI username
+    c) Verify file permission: icacls pdfkey.pem
+    D) Confirm the security group allows SSH (port 22)
+    E) Verify the key file used by Terraform is the same as the one you’re SSHing with: ls pdfkey.pem
+
+10) #!/bin/bash -> It declares it as a bash script
+
+11) Nagios credentials in AWS ssm
+    Run these commands in powershell:
+        aws ssm put-parameter --name "NAGIOS_USER" --value "nagiosadmin" --type "SecureString"
+        aws ssm put-parameter --name "NAGIOS_PASS" --value "nagiosadmin" --type "SecureString"
+
+12) Remember to add EC2_SSM_Access role in Nagios too.
+13) Debugging
+    Go to its ssh: ssh -i ./pdfkey.pem ubuntu@<nagio_ip>
+    To check whether streamlit mounted correctly: sudo docker exec -it nagios ls /opt/nagios/etc/servers/
+    If mounted then move to validate nagios loaded it or not:
+        sudo docker exec -it nagios grep streamlit /opt/nagios/var/nagios.log
+        If blank then not loaded it.
+        Reload it manually: sudo docker exec -it nagios /opt/nagios/bin/nagios -v /opt/nagios/etc/nagios.cfg
+        Then start nagios daemon again: sudo docker exec -it nagios /opt/nagios/bin/nagios -d /opt/nagios/etc/nagios.cfg

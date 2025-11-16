@@ -1,0 +1,16 @@
+__pycache__/
+terraform-ec2/
+venv/
+.venv/
+.env
+*.pem
+*.key
+About_Project.pptx
+To_run.txt
+Zether_accessKeys.csv
+.git/
+# OS/Editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

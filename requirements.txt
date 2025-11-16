@@ -1,0 +1,19 @@
+#Core Libraries
+scikit-learn
+numpy
+
+#Text Embedding and search
+sentence_transformers
+faiss-cpu
+
+#PDF Processing
+PyMuPDF
+
+#Streamlit app
+streamlit
+
+#OpenAI API
+openai
+
+#Environment Variables
+python-dotenv
